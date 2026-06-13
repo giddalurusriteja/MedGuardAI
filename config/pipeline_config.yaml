@@ -1,0 +1,61 @@
+# Pipeline Configuration for Healthcare Fraud Detection
+
+data:
+  gcs_bucket: "medguard_rawdata"
+  training_data_path: "gs://medguard_rawdata/data_processed"
+  n_rows_sample: null
+
+mlflow:
+  tracking_uri: "https://mlflow-server-855767627985.us-central1.run.app"
+  artifact_location: "gs://medguard_rawdata/models/mlflow_artifacts"
+  experiment_name: "healthcare-fraud-detection"
+
+models:
+  xgboost:
+    n_trials: 5
+    cv_folds: 3
+    random_state: 42
+  lightgbm:
+    n_trials: 5
+    cv_folds: 3
+    random_state: 42
+  stacker:
+    random_state: 42
+    max_iter: 1000
+validation:
+  target_column: PotentialFraud
+  stratify_by: Provider
+  positive_class_ratio: 0.0004
+
+sampling:
+  undersample_enabled: true
+  undersample_ratio: 100
+
+evaluation:
+  decision_threshold: 0.0004
+  primary_metric: "f2"
+
+dask:
+  use_distributed: false
+  scheduler_address: null
+  n_workers: 8
+  threads_per_worker: 2
+  memory_limit: "auto"
+
+gcp:
+  project_id: "involuted-fold-474521-h3"
+  region: "us-central1"
+  artifact_registry: "us-central1-docker.pkg.dev/involuted-fold-474521-h3/medguardai-ml-training"
+  service_account: ""
+
+compute:
+  primary:
+    machine_type: "n2-highmem-16"
+    vcpus: 16
+    memory_gb: 128
+  workers:
+    machine_type: "n2-highmem-16"
+    vcpus: 16
+    memory_gb: 128
+    count: 0
+  use_preemptible: true
