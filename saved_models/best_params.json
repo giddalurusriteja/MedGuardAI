@@ -1,0 +1,30 @@
+{
+  "xgboost": {
+    "max_depth": 4,
+    "learning_rate": 0.038127811388903934,
+    "subsample": 0.7520784049582703,
+    "colsample_bytree": 0.8988526885507834,
+    "min_child_weight": 8,
+    "gamma": 1.8712803113243064,
+    "scale_pos_weight": 25.25468958579637,
+    "objective": "binary:logistic",
+    "eval_metric": "aucpr",
+    "tree_method": "hist",
+    "random_state": 42
+  },
+  "lightgbm": {
+    "max_depth": 3,
+    "learning_rate": 0.1151650115649415,
+    "num_leaves": 63,
+    "subsample": 0.7212219496301412,
+    "colsample_bytree": 0.9261040131815903,
+    "min_child_weight": 0.28185653841869085,
+    "reg_alpha": 3.7507429254270876,
+    "reg_lambda": 6.262093760691728,
+    "scale_pos_weight": 58.715277413470226,
+    "objective": "binary",
+    "metric": "auc",
+    "random_state": 42,
+    "verbose": -1
+  }
+}

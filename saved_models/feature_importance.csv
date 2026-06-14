@@ -1,0 +1,5 @@
+feature,importance_xgb,importance_lgbm,importance_avg
+InscClaimAmtReimbursed_out,0.2009267,188,94.10046335309744
+InscClaimAmtReimbursed_in,0.43737596,164,82.21868798136711
+DeductibleAmtPaid_out,0.13331991,103,51.56665995717049
+DeductibleAmtPaid_in,0.2283774,59,29.614188700914383
