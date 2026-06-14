@@ -7,7 +7,7 @@ import xgboost as xgb
 import lightgbm as lgb
 import joblib
 import numpy as np
-
+from pathlib import Path
 # =========================
 # PAGE CONFIG
 # =========================
@@ -85,8 +85,13 @@ def load_models():
         BASE_DIR / "saved_models" / "stacker_model.joblib"
     )
 
-    return xgb_model, lgb_model, rf_model, mlp_model, stacker
-xgb_model, lgb_model, rf_model, mlp_model, stacker = load_models()
+    return (
+        xgb_model,
+        lgb_model,
+        rf_model,
+        mlp_model,
+        stacker
+    )
 # =========================
 # SIDEBAR
 # =========================
