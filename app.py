@@ -92,6 +92,7 @@ def load_models():
         mlp_model,
         stacker
     )
+xgb_model, lgb_model, rf_model, mlp_model, stacker = load_models()
 # =========================
 # SIDEBAR
 # =========================
