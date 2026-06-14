@@ -58,36 +58,34 @@ div[data-testid="metric-container"]{
 
 if "df" not in st.session_state:
     st.session_state.df = None
+from pathlib import Path
 
+BASE_DIR = Path(__file__).resolve().parent
 @st.cache_resource
 def load_models():
 
     xgb_model = xgb.Booster()
-    xgb_model.load_model("saved_models/model_xgb.json")
+    xgb_model.load_model(
+        str(BASE_DIR / "saved_models" / "model_xgb.json")
+    )
 
     lgb_model = lgb.Booster(
-        model_file="saved_models/model_lgbm.txt"
+        model_file=str(BASE_DIR / "saved_models" / "model_lgbm.txt")
     )
 
     rf_model = joblib.load(
-        "saved_models/rf_model.joblib"
+        BASE_DIR / "saved_models" / "rf_model.joblib"
     )
 
     mlp_model = joblib.load(
-        "saved_models/mlp_model.joblib"
+        BASE_DIR / "saved_models" / "mlp_model.joblib"
     )
 
     stacker = joblib.load(
-        "saved_models/stacker_model.joblib"
+        BASE_DIR / "saved_models" / "stacker_model.joblib"
     )
 
-    return (
-    xgb_model,
-    lgb_model,
-    rf_model,
-    mlp_model,
-    stacker
-    )
+    return xgb_model, lgb_model, rf_model, mlp_model, stacker
 xgb_model, lgb_model, rf_model, mlp_model, stacker = load_models()
 # =========================
 # SIDEBAR
