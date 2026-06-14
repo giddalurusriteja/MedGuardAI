@@ -3,6 +3,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
+import xgboost as xgb
+import lightgbm as lgb
+import joblib
+import numpy as np
 
 # =========================
 # PAGE CONFIG
@@ -55,6 +59,36 @@ div[data-testid="metric-container"]{
 if "df" not in st.session_state:
     st.session_state.df = None
 
+@st.cache_resource
+def load_models():
+
+    xgb_model = xgb.Booster()
+    xgb_model.load_model("saved_models/model_xgb.json")
+
+    lgb_model = lgb.Booster(
+        model_file="saved_models/model_lgbm.txt"
+    )
+
+    rf_model = joblib.load(
+        "saved_models/rf_model.joblib"
+    )
+
+    mlp_model = joblib.load(
+        "saved_models/mlp_model.joblib"
+    )
+
+    stacker = joblib.load(
+        "saved_models/stacker_model.joblib"
+    )
+
+    return (
+    xgb_model,
+    lgb_model,
+    rf_model,
+    mlp_model,
+    stacker
+    )
+xgb_model, lgb_model, rf_model, mlp_model, stacker = load_models()
 # =========================
 # SIDEBAR
 # =========================
@@ -68,6 +102,7 @@ page = st.sidebar.radio(
         "Upload Dataset",
         "Fraud Detection",
         "Visualizations",
+        "Model Insights",
         "Download Report",
         "About"
     ]
@@ -108,7 +143,10 @@ if page == "Home":
         st.metric("🚨 Fraud Cases", "1,250")
 
     with col3:
-        st.metric("🎯 Accuracy", "97.5%")
+        st.metric(
+            "🎯 AUCPR",
+            "0.683"
+)
 
     with col4:
         st.metric("🏥 Hospitals", "350")
@@ -164,6 +202,9 @@ elif page == "Upload Dataset":
 # =========================
 # FRAUD DETECTION PAGE
 # =========================
+# =========================
+# FRAUD DETECTION PAGE
+# =========================
 
 elif page == "Fraud Detection":
 
@@ -179,26 +220,57 @@ elif page == "Fraud Detection":
 
         if st.button("Run Fraud Detection"):
 
-            if "PotentialFraud" in df.columns:
+            feature_cols = [
+                "InscClaimAmtReimbursed_in",
+                "DeductibleAmtPaid_in",
+                "InscClaimAmtReimbursed_out",
+                "DeductibleAmtPaid_out"
+            ]
 
-                df["Fraud Prediction"] = df["PotentialFraud"]
+            X = df[feature_cols]
 
-                fraud_count = int(
-                    df["Fraud Prediction"].sum()
-                )
+            dtest = xgb.DMatrix(X)
 
-                st.success(
-                    f"{fraud_count} suspicious claims detected."
-                )
+            xgb_pred = xgb_model.predict(dtest)
+            lgb_pred = lgb_model.predict(X)
+            rf_pred = rf_model.predict_proba(X)[:, 1]
+            mlp_pred = mlp_model.predict_proba(X)[:, 1]
 
-                st.dataframe(df.head())
+            stack_input = np.column_stack([
+                xgb_pred,
+                lgb_pred,
+                rf_pred,
+                mlp_pred
+            ])
 
-            else:
+            final_prob = stacker.predict_proba(
+                stack_input
+            )[:, 1]
 
-                st.error(
-                    "PotentialFraud column not found."
-                )
-# =========================
+            df["Fraud Probability"] = final_prob
+
+            df["Fraud Prediction"] = (
+                final_prob > 0.5
+            ).astype(int)
+
+            fraud_count = int(
+                df["Fraud Prediction"].sum()
+            )
+
+            st.success(
+                f"{fraud_count} suspicious claims detected."
+            )
+
+            st.dataframe(
+                df[
+                    [
+                        "Provider",
+                        "Fraud Probability",
+                        "Fraud Prediction"
+                    ]
+                ].head()
+            )
+# =========================        
 # VISUALIZATIONS PAGE
 # =========================
 elif page == "Visualizations":
@@ -333,7 +405,40 @@ elif page == "Visualizations":
             st.info(
                 "Run Fraud Detection first."
             )
+# =========================
+# MODEL INSIGHTS PAGE
+# =========================
 
+elif page == "Model Insights":
+
+    st.header("📈 Feature Importance Analysis")
+
+    fi = pd.read_csv(
+        "saved_models/feature_importance.csv"
+    )
+
+    fi.columns = [
+    "Feature",
+    "Importance_XGB",
+    "Importance_LGBM",
+    "Importance"
+
+    ]
+
+    st.subheader("Feature Importance Table")
+    st.dataframe(fi)
+
+    fig = px.bar(
+        fi,
+        x="Feature",
+        y="Importance_XGB",
+        title="XGBoost Feature Importance"
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
 elif page == "Download Report":
 
     st.header("📄 Download Report")
@@ -377,6 +482,11 @@ elif page == "About":
     - Streamlit
     - Pandas
     - Machine Learning
+    - XGBoost
+    - LightGBM
+    - Random Forest
+    - Neural Network (MLP)
+    - Logistic Regression Stacking
     - Data Visualization
     """)
 

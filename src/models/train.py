@@ -13,7 +13,10 @@ import joblib
 
 import xgboost as xgb
 import lightgbm as lgb
+
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neural_network import MLPClassifier
 
 import optuna
 import mlflow
@@ -461,6 +464,8 @@ class DistributedTrainer:
         
         oof_xgb = np.zeros(total_rows)
         oof_lgbm = np.zeros(total_rows)
+        oof_rf = np.zeros(total_rows)
+        oof_mlp = np.zeros(total_rows)
         oof_targets = np.zeros(total_rows)
         
         provider_col = self.df[stratify_col].compute()
@@ -486,25 +491,45 @@ class DistributedTrainer:
             model_lgbm = lgb.LGBMClassifier(**self.best_params_lgbm)
             model_lgbm.fit(X_train, y_train)
             oof_lgbm[test_indices] = model_lgbm.predict_proba(X_test)[:, 1]
-            
-            oof_targets[test_indices] = y_test.values
-        
+
+        model_rf = RandomForestClassifier(
+            n_estimators=200,
+            max_depth=10,
+            random_state=42,
+            n_jobs=-1
+        )
+        model_rf.fit(X_train, y_train)
+        oof_rf[test_indices] = model_rf.predict_proba(X_test)[:, 1]
+
+        model_mlp = MLPClassifier(
+            hidden_layer_sizes=(128, 64),
+            max_iter=500,
+            random_state=42
+        )
+        model_mlp.fit(X_train, y_train)
+        oof_mlp[test_indices] = model_mlp.predict_proba(X_test)[:, 1]
+
+        oof_targets[test_indices] = y_test.values
+
         self.oof_predictions = pd.DataFrame({
             'xgb_pred': oof_xgb,
             'lgbm_pred': oof_lgbm,
+            'rf_pred': oof_rf,
+            'mlp_pred': oof_mlp,
             'target': oof_targets
-        })
-        
+        })    
         self.oof_metrics_xgb = evaluate_fold(oof_targets, oof_xgb)
         self.oof_metrics_lgbm = evaluate_fold(oof_targets, oof_lgbm)
-        
-        logger.info(f"OOF AUCPR - XGB: {self.oof_metrics_xgb['aucpr']:.4f}, LGBM: {self.oof_metrics_lgbm['aucpr']:.4f}")
+        self.oof_metrics_rf = evaluate_fold(oof_targets, oof_rf)
+        self.oof_metrics_mlp = evaluate_fold(oof_targets, oof_mlp)
         
     def train_stacker(self):
         """Train stacker model on OOF predictions."""
         logger.info("Training stacker model...")
         
-        X_stack = self.oof_predictions[['xgb_pred', 'lgbm_pred']].values
+        X_stack = self.oof_predictions[
+        ['xgb_pred', 'lgbm_pred', 'rf_pred', 'mlp_pred']
+        ].values
         y_stack = self.oof_predictions['target'].values
         
         self.stacker = LogisticRegression(
@@ -518,7 +543,8 @@ class DistributedTrainer:
         
         self.stacker_coef_xgb = self.stacker.coef_[0][0]
         self.stacker_coef_lgbm = self.stacker.coef_[0][1]
-        
+        self.stacker_coef_rf = self.stacker.coef_[0][2]
+        self.stacker_coef_mlp = self.stacker.coef_[0][3]
         logger.info(f"Stacker AUCPR: {self.stacker_metrics['aucpr']:.4f}")
         
     def train_final_models(self):
@@ -547,6 +573,20 @@ class DistributedTrainer:
         
         self.final_lgbm = lgb.LGBMClassifier(**self.best_params_lgbm)
         self.final_lgbm.fit(X_full, y_full)
+        self.final_rf = RandomForestClassifier(
+            n_estimators=200,
+            max_depth=10,
+            random_state=42,
+            n_jobs=-1
+        )
+        self.final_rf.fit(X_full, y_full)
+
+        self.final_mlp = MLPClassifier(
+            hidden_layer_sizes=(128, 64),
+            max_iter=500,
+            random_state=42
+        )
+        self.final_mlp.fit(X_full, y_full)
         
         logger.info("Final models trained")
         
@@ -583,6 +623,11 @@ class DistributedTrainer:
             
             stacker_path = output_path / "stacker_model.joblib"
             joblib.dump(self.stacker, stacker_path)
+            rf_path = output_path / "rf_model.joblib"
+            joblib.dump(self.final_rf, rf_path)
+
+            mlp_path = output_path / "mlp_model.joblib"
+            joblib.dump(self.final_mlp, mlp_path)
            # mlflow.log_artifact(stacker_path)
             
             params_path = output_path / "best_params.json"
